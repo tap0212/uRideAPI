@@ -33,15 +33,15 @@ var carSchema = new mongoose.Schema(
         ref:"User",
         required:true
     },
-    carImage: {
-        type: String,
-        required: true
-    },
     city:{
         type:ObjectId,
         ref:"City",
         required:true
-    }
+    },
+    photo: {
+        data: Buffer,
+        contentType: String
+    },
   },
   { timestamps: true }
 );
