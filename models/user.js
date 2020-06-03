@@ -26,6 +26,10 @@ var userSchema = new mongoose.Schema(
       type: Number,
       default: 1
     },
+    car:{
+      type:ObjectId,
+      ref:"Car"
+    },
     order: {
       type: ObjectId,
       ref:"Car"
