@@ -1,4 +1,8 @@
 const Car = require('../models/car')
+const formidable = require("formidable");
+const _ = require("lodash");
+const fs = require("fs");
+
 
 exports.getCarById = (req, res, next, id) => {
     Car.findById(id).exec((err, car) => {
@@ -13,122 +17,129 @@ exports.getCarById = (req, res, next, id) => {
   };
 
 exports.createCar = (req, res) => {
-    // const car = new Car(req.body);
-    // car.save((err, car) => {
-    //   if (err) {
-    //     return res.status(400).json({
-    //       error: "NOT able to save car in DB",
-    //       err
-    //     });
-    //   }
-    //   res.json({ car });
-    // });
-    const car = new Car({
-        brand: req.body.brand,
-        modelName: req.body.modelName,
-        year: req.body.year,
-        category: req.body.category,
-        user: req.body.user,
-        carImage: req.file.path
+  let form = new formidable.IncomingForm();
+  form.keepExtensions = true;
+
+  form.parse(req, (err, fields,file ) => {
+    if(err){
+      return res.status(400).json({
+        error:"problem with image"
+      })
+    }
+
+    const {brand, modelName, year, category, price, user, city} = fields;
+
+    let car = new Car(fields)
+
+    if(file.photo) {
+      if(file.photo.size > 1500000){
+        return res.status(400).json({
+          error:"File size too large"
+        })
+      }
+      car.photo.data = fs.readFileSync(file.photo.path)
+      car.photo.contentType = file.photo.type;
+    }
+
+    car.save((err, car) => {
+      if(err){
+        res.status(400).json({
+          error:"unable to save"
+        })
+      }
+      res.json(car)
     })
-    car.save()
-    .then(result => {
-        console.log(result)
-        res.status(200).json({result})
-    })
-    .catch(err => res.status(500).json({
-        message: 'NOT able to save car in DB',
-        err
-    }))
+  })
 }
 
-
-exports.getCategory = (req, res) => {
-  return res.json(req.category);
+exports.getCar = (req, res) => {
+  req.car.photo = undefined;
+  return res.json(req.car);
 };
 
-exports.getAllCategory = (req, res) => {
-  Category.find().exec((err, categories) => {
-    if (err) {
-      return res.status(400).json({
-        error: "NO categories found"
-      });
-    }
-    res.json(categories);
-  });
+//middleware
+exports.photo = (req, res, next) => {
+  if (req.car.photo.data) {
+    res.set("Content-Type", req.car.photo.contentType);
+    return res.send(req.car.photo.data);
+  }
+  next();
 };
 
-exports.updateCategory = (req, res) => {
-  const category = req.category;
-  category.name = req.body.name;
 
-  category.save((err, updatedCategory) => {
+// delete controllers
+exports.deleteCar = (req, res) => {
+  let car = req.car;
+  car.remove((err, deletedCar) => {
     if (err) {
       return res.status(400).json({
-        error: err
-      });
-    }
-    res.json(updatedCategory);
-  });
-};
-
-exports.removeCategory = (req, res) => {
-  const category = req.category;
-
-  category.remove((err, category) => {
-    if (err) {
-      return res.status(400).json({
-        error: "Failed to delete this category"
+        error: "Failed to delete the car"
       });
     }
     res.json({
-      message: "Successfull deleted"
+      message: "Deletion was a success",
+      deletedCar
     });
   });
 };
 
-
-exports.getCar = (req, res) => {
-    return res.json(req.car)
-}
-
-exports.getAllCar = (req,res) => {
-    Car.find().exec((err, cars) => {
-        if(err){
-            return res.status(400).json({
-                error:"No Car Found"
-            })
-        }
-        res.json(cars)
-    })
-}
-
+// update controllers
 exports.updateCar = (req, res) => {
-    Car.findByIdAndUpdate(
-      { _id: req.car._id },
-      { $set: req.body },
-      { new: true, useFindAndModify: false },
-      (err, car) => {
-        if (err) {
-          return res.status(400).json({
-            error: "You are not authorized to update this car"
-          });
-        }
-        res.json(car);
-      }
-    );
-  };
+  let form = new formidable.IncomingForm();
+  form.keepExtensions = true;
 
-exports.removeCar = (req, res) => {
-    const car = req.car;
-    car.remove((err, car) => {
-        if(err){
-            return res.status(400).json({
-                error:"Failed to delete"
-            })
-        }
-        res.json({
-            message:"Deleted"
-        })
-    })
-}
+  form.parse(req, (err, fields, file) => {
+    if (err) {
+      return res.status(400).json({
+        error: "problem with image"
+      });
+    }
+
+    //updation code
+    let car = req.car;
+    car = _.extend(car, fields);
+
+    //handle file here
+    if (file.photo) {
+      if (file.photo.size > 3000000) {
+        return res.status(400).json({
+          error: "File size too big!"
+        });
+      }
+      car.photo.data = fs.readFileSync(file.photo.path);
+      car.photo.contentType = file.photo.type;
+    }
+    // console.log(product);
+
+    //save to the DB
+    car.save((err, car) => {
+      if (err) {
+        res.status(400).json({
+          error: "Updation of product failed"
+        });
+      }
+      res.json(car);
+    });
+  });
+};
+
+//event listing
+
+exports.getAllCars = (req, res) => {
+  let sortBy = req.query.sortBy ? req.query.sortBy : "_id";
+
+  Car.find()
+    .select("-photo")
+    .populate("category")
+    .populate("user")
+    .populate("city")
+    .sort([[sortBy, "asc"]])
+    .exec((err, cars) => {
+      if (err) {
+        return res.status(400).json({
+          error: "NO car FOUND"
+        });
+      }
+      res.json(cars);
+    });
+};
