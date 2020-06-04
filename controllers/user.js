@@ -52,8 +52,7 @@ exports.updateUser = (req, res) => {
           error:"updation failed"
         })
       }
-      user.salt = undefined;
-      user.encry_password = undefined;
+
       res.json(user)
     })
 
