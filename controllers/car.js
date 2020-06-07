@@ -43,8 +43,10 @@ exports.createCar = (req, res) => {
 
     car.save((err, car) => {
       if(err){
+        console.log(err)
         res.status(400).json({
-          error:"unable to save"
+          error:"unable to save",
+          err:err
         })
       }
       res.json(car)
