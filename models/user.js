@@ -42,6 +42,9 @@ var userSchema = new mongoose.Schema(
     },
     totalOrderCost:{
       type:Number
+    },
+    location:{
+      type:String
     }
   },
   { timestamps: true }
